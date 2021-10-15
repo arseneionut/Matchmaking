@@ -1,0 +1,21 @@
+
+POST http://localhost:90/v1/matchmaking/join HTTP/1.1
+Content-Type: application/json
+
+{
+    "ProfileId": "547d52ea-0233-44da-b307-24f312198bbd",
+    "QoS": 20
+}
+
+
+###
+POST http://localhost:90/v1/matchmaking/leave HTTP/1.1
+content-type: application/json
+
+{
+    "ProfileId": "547d52ea-0233-44da-b307-24f312197bbd"
+}
+
+###
+GET http://localhost:90/v1/matchmaking/547d52ea-0233-44da-b307-24f312197bbd/session HTTP/1.1
+content-type: application/json
