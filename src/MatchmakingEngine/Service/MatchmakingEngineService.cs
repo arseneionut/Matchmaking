@@ -1,25 +1,29 @@
 ﻿using MatchmakingEngine.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace MatchmakingEngine.Service
 {
     public class MatchmakingEngineService : IMatchmakingEngineService
     {
-        const int MM_CHUNK = 50;
-        ConnectionMultiplexer _redis;
-        IDatabase _db;
-        ILogger<MatchmakingEngineService> _logger;
+        private readonly int _matchmakingChunk = 50;
 
-        public MatchmakingEngineService(ILogger<MatchmakingEngineService> logger)
+        private readonly ConnectionMultiplexer _redis;
+        private readonly IDatabase _db;
+        private readonly ILogger<MatchmakingEngineService> _logger;
+        private readonly IConfiguration _config;
+
+        public MatchmakingEngineService(ILogger<MatchmakingEngineService> logger, IConfiguration config)
         {
-            _redis = ConnectionMultiplexer.Connect("localhost");
+            _config = config;
+            _redis = ConnectionMultiplexer.Connect(_config.GetValue<string>("Redis:Host"));
             _db = _redis.GetDatabase();
             _logger = logger;
+            _matchmakingChunk = config.GetValue<int>("Matchmaking:MatchmakingChunk");
         }
 
         public void GetPlayerChunkFromQueue(out string[] players, out string[] qos)
@@ -27,10 +31,10 @@ namespace MatchmakingEngine.Service
             var transaction = _db.CreateTransaction();
             transaction.AddCondition(Condition.ListLengthGreaterThan("matchmaking_queue",0));
             
-            var result = transaction.ListRangeAsync("matchmaking_queue", MM_CHUNK * -1, -1);
-            transaction.ListTrimAsync("matchmaking_queue", 0, (MM_CHUNK + 1) * -1);
-            var resultQoS = transaction.ListRangeAsync("matchmaking_queue_qos", MM_CHUNK * -1, -1);
-            transaction.ListTrimAsync("matchmaking_queue_qos", 0, (MM_CHUNK + 1) * -1);
+            var result = transaction.ListRangeAsync("matchmaking_queue", _matchmakingChunk * -1, -1);
+            transaction.ListTrimAsync("matchmaking_queue", 0, (_matchmakingChunk + 1) * -1);
+            var resultQoS = transaction.ListRangeAsync("matchmaking_queue_qos", _matchmakingChunk * -1, -1);
+            transaction.ListTrimAsync("matchmaking_queue_qos", 0, (_matchmakingChunk + 1) * -1);
             bool committed = transaction.Execute();
             if (committed)
             {

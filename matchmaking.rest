@@ -17,5 +17,5 @@ content-type: application/json
 }
 
 ###
-GET http://localhost:90/v1/matchmaking/547d52ea-0233-44da-b307-24f312197bbd/session HTTP/1.1
+GET http://localhost:90/v1/matchmaking/547d52ea-0233-44da-b307-24f312198bbd/session HTTP/1.1
 content-type: application/json

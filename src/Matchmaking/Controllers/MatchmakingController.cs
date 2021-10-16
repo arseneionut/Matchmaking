@@ -12,8 +12,8 @@ namespace Matchmaking.Controllers
     [Route("v1/matchmaking")]
     public class MatchmakingController : Controller
     {
-        private IMatchmakingService _matchmakingService;
-        private ILogger<MatchmakingController> _logger;
+        private readonly IMatchmakingService _matchmakingService;
+        private readonly ILogger<MatchmakingController> _logger;
         public MatchmakingController(IMatchmakingService service, ILogger<MatchmakingController> logger)
         {
             _matchmakingService = service;
@@ -23,10 +23,15 @@ namespace Matchmaking.Controllers
         [HttpPost("join")]
         public ActionResult StartMatchmaking([FromBody] StartMatchmakingBody body)
         {
+            if (!ModelState.IsValid)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Invalid request body {Request.Body}");
+            }
+
             var result = _matchmakingService.AddToMatchmakingQueue(body.ProfileId, body.QoS);
             if (!result)
             {
-                _logger?.LogError("Matchmaking queue join error");
+                _logger?.LogError("[Matchmaking]StartMatchmaking: Matchmaking queue join error");
                 return StatusCode(StatusCodes.Status500InternalServerError, "Something went wrong when trying to join the matchmaking queue");
             }
             return Ok();
@@ -35,29 +40,41 @@ namespace Matchmaking.Controllers
         [HttpGet("{profileId}/session")]
         public ActionResult GetMatchmakingSession([FromRoute] Guid profileId)
         {
+            if (!ModelState.IsValid)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Invalid profile id : {profileId}");
+            }
+
             var result = _matchmakingService.GetMatchmakingSession(profileId);
             
             if (result == null)
             {
+                _logger?.LogDebug("[Matchmaking]GetMatchmakingSession:User didn't join matchmaking");
                 return StatusCode((int)HttpStatusCode.InternalServerError, "User did not join matchmaking");
             }
 
             if (result == string.Empty)
             {
-                _logger?.LogDebug("Session not ready");
-                return Ok();
+                _logger?.LogDebug("[Matchmaking]GetMatchmakingSession:Session not ready");
+                return Ok("Finding session");
             }
             return Ok(new ReturnSession(result));
         }
 
         [HttpPost("leave")]
-        public ActionResult LeaveMatchmaking([FromBody] StartMatchmakingBody body)
+        public ActionResult LeaveMatchmaking([FromBody] BaseRequestBody body)
         {
-            var result = _matchmakingService.RemoveFromMatchmakingQueue(body.ProfileId);
-            if (!result)
+            if (!ModelState.IsValid)
             {
-                _logger?.LogError("Matchmaking queue leave error");
-                return StatusCode(StatusCodes.Status500InternalServerError, "Something went wrong when trying to leave the matchmaking queue");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Invalid request body {Request.Body}");
+            }
+
+            var result = _matchmakingService.RemoveFromMatchmakingQueue(body.ProfileId);
+            switch(result)
+            {
+                case LeaveOutcome.LeaveSuccess: return Ok();
+                case LeaveOutcome.Error: return StatusCode(StatusCodes.Status500InternalServerError, "Something went wrong when trying to leave the matchmaking queue");
+                case LeaveOutcome.CannotLeave: return Ok("Cannot Leave");
             }
             return Ok();
         }

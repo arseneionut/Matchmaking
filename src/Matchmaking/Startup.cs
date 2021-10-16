@@ -1,10 +1,7 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Net.Http.Headers;
 using Matchmaking.Services;
-using System;
 
 namespace Matchmaking
 {
@@ -17,7 +14,6 @@ namespace Matchmaking
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddOptions();
@@ -26,22 +22,9 @@ namespace Matchmaking
             services.AddResponseCaching();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public static void Configure(IApplicationBuilder app)
         {
             app.UseResponseCaching();
-            app.UseStaticFiles(new StaticFileOptions()
-            {
-                OnPrepareResponse = (context) =>
-                {
-                    var headers = context.Context.Response.GetTypedHeaders();
-                    headers.CacheControl = new CacheControlHeaderValue()
-                    {
-                        MaxAge = TimeSpan.FromDays(365)
-                    };
-                }
-            });
-
             app.UseRouting();
             app.UseEndpoints(endpoints =>
             {

@@ -25,7 +25,7 @@ namespace MatchmakingIntegrationTests
             {
                 services.AddSingleton<IMatchmakingEngineService, MatchmakingEngineService>();
                 services.AddHostedService<Worker>();
-            });
+            }).UseEnvironment("");
             base.ConfigureWebHost(builder);
         }
     }
@@ -43,7 +43,7 @@ namespace MatchmakingIntegrationTests
         private StartupFactory _factory;
         public MatchmakingIntegrationTest(StartupFactory factory)
         {
-            _redis = ConnectionMultiplexer.Connect("localhost");
+            _redis = ConnectionMultiplexer.Connect("127.0.0.1");
             _db = _redis.GetDatabase();
 
             _factory = factory;
@@ -83,31 +83,72 @@ namespace MatchmakingIntegrationTests
             _db.Wait(result);
         }
 
-        private Task<HttpResponseMessage> JoinMatchmaking(Guid guid, int qos = 10)
+        private Task<HttpResponseMessage> JoinMatchmaking(string guid, int qos = 10)
         {
             var Url = $"v1/matchmaking/join";
-            string body = JsonConvert.SerializeObject(new { ProfileId = guid.ToString(), QoS = qos });
+            string body = JsonConvert.SerializeObject(new { ProfileId = guid, QoS = qos });
             return HttpCall(Verb.POST, Url, body);
         }
 
-        private Task<HttpResponseMessage> GetSession(Guid guid)
+        private Task<HttpResponseMessage> GetSession(string guid)
         {
-            var Url = $"v1/matchmaking/{guid.ToString()}/session";
+            var Url = $"v1/matchmaking/{guid}/session";
             return HttpCall(Verb.GET, Url);
+        }
+
+        private Task<HttpResponseMessage> LeaveMatchmaking(string guid)
+        {
+            var Url = $"v1/matchmaking/leave";
+            string body = JsonConvert.SerializeObject(new { ProfileId = guid});
+            return HttpCall(Verb.POST, Url, body);
         }
 
         [Fact]
         public async Task TestJoinMatchmaking()
         {
             FlushRedis();
-            var response = await JoinMatchmaking(Guid.NewGuid());
+            var response = await JoinMatchmaking(Guid.NewGuid().ToString());
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestJoinMatchmakingWrongGuid()
+        {
+            FlushRedis();
+            var response = await JoinMatchmaking("WRONG_GUID");
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestLeaveMatchmaking()
+        {
+            FlushRedis();
+            Guid player = Guid.NewGuid();
+            var response = await JoinMatchmaking(player.ToString());
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseLeave = await LeaveMatchmaking(player.ToString());
+            Assert.Equal(HttpStatusCode.OK, responseLeave.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestLeaveMatchmakingWrongGuid()
+        {
+            FlushRedis();
+            var responseLeave = await LeaveMatchmaking("WRONG_GUID");
+            Assert.Equal(HttpStatusCode.InternalServerError, responseLeave.StatusCode);
         }
 
         [Fact]
         public async Task TestGetSession()
         {
-            var response = await GetSession(Guid.NewGuid());
+            var response = await GetSession(Guid.NewGuid().ToString());
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestGetSessionWrongGuid()
+        {
+            var response = await GetSession("WRONG_GUID");
             Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         }
 
@@ -117,10 +158,10 @@ namespace MatchmakingIntegrationTests
             FlushRedis();
             Guid profile = Guid.NewGuid();
 
-            var joinResp = await JoinMatchmaking(profile);
+            var joinResp = await JoinMatchmaking(profile.ToString());
             Assert.Equal(HttpStatusCode.OK, joinResp.StatusCode);
 
-            var getResp = await GetSession(profile);
+            var getResp = await GetSession(profile.ToString());
             Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
         }
 
@@ -131,13 +172,13 @@ namespace MatchmakingIntegrationTests
             Guid pp1 = Guid.NewGuid();
             Guid pp2 = Guid.NewGuid();
 
-            await JoinMatchmaking(pp1);
-            await JoinMatchmaking(pp2);
+            await JoinMatchmaking(pp1.ToString());
+            await JoinMatchmaking(pp2.ToString());
 
             ReturnSession session = new ReturnSession();
-            while (session.SessionId != string.Empty)
+            while (session.SessionId == "")
             {
-                var body = await GetSession(pp1).Result.Content.ReadAsStringAsync();
+                var body = await GetSession(pp1.ToString()).Result.Content.ReadAsStringAsync();
                 session = JsonConvert.DeserializeObject<ReturnSession>(body);
                 if (session == null)
                 {
@@ -145,6 +186,7 @@ namespace MatchmakingIntegrationTests
                 }
                 Task.Delay(500).Wait();
             }
+            Assert.NotEqual(new Guid(session.SessionId), Guid.Empty);
         }
 
         [Fact]
@@ -152,15 +194,15 @@ namespace MatchmakingIntegrationTests
         {
             FlushRedis();
             Guid pp1 = Guid.NewGuid();
-            await JoinMatchmaking(pp1);
+            await JoinMatchmaking(pp1.ToString());
             for (int i= 0; i < 9; i++)
-                await JoinMatchmaking(Guid.NewGuid());
+                await JoinMatchmaking(Guid.NewGuid().ToString());
 
             ReturnSession session = new ReturnSession();
             HttpResponseMessage result = new HttpResponseMessage();
-            while (session.SessionId != string.Empty)
+            while (session.SessionId == "")
             {
-                result = await GetSession(pp1);
+                result = await GetSession(pp1.ToString());
                 var body = await result.Content.ReadAsStringAsync();
                 session = JsonConvert.DeserializeObject<ReturnSession>(body);
                 if (session == null)
@@ -171,6 +213,39 @@ namespace MatchmakingIntegrationTests
                 Task.Delay(500).Wait();
             }
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotEqual(new Guid(session.SessionId), Guid.Empty);
+        }
+
+        [Fact]
+        public async Task TestMatchmakeIntoSessionFullTryLeave()
+        {
+            FlushRedis();
+            Guid pp1 = Guid.NewGuid();
+            await JoinMatchmaking(pp1.ToString());
+            for (int i = 0; i < 9; i++)
+                await JoinMatchmaking(Guid.NewGuid().ToString());
+
+            ReturnSession session = new ReturnSession();
+            HttpResponseMessage result = new HttpResponseMessage();
+            while (session.SessionId == "")
+            {
+                result = await GetSession(pp1.ToString());
+                var body = await result.Content.ReadAsStringAsync();
+                session = JsonConvert.DeserializeObject<ReturnSession>(body);
+                if (session == null)
+                {
+                    session = new ReturnSession();
+                }
+
+                Task.Delay(500).Wait();
+            }
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotEqual(new Guid(session.SessionId), Guid.Empty);
+            var leaveResponse = await LeaveMatchmaking(pp1.ToString());
+            Assert.Equal(HttpStatusCode.OK, leaveResponse.StatusCode);
+            string str = await leaveResponse.Content.ReadAsStringAsync();
+            Assert.Equal("\"Cannot Leave\"", str);
+
         }
     }
 }

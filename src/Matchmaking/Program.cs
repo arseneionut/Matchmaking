@@ -34,7 +34,6 @@ namespace Matchmaking
                     logging.ClearProviders();
                     logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
                     logging.AddConsole();
-                    logging.AddDebug();
                 });
         }
     }
