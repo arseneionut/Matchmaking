@@ -20,9 +20,9 @@
     ## GET SESSION
     GET http://localhost:90/v1/matchmaking/GUID/session HTTP/1.1
 
-3. In order to run it from the solution, you will need to have a redis db available on "localhost:6379"
 
-NOTES* 
+## NOTES* 
+In order to run it from the solution, you will need to have a redis db available on "localhost:6379"
 As the service is setup now:
 - the session will wait 30 seconds if the minimum number of players is reached.
 - the session will automatically start if the max number of players is reached.
