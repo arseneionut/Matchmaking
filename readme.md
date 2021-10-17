@@ -27,7 +27,7 @@ In order to run it from the solution, you will need to have a redis db available
 As the service is setup now:
 - the session will wait 30 seconds if the minimum number of players is reached.
 - the session will automatically start if the max number of players is reached.
-- if the minimum amount of players isn't met, after 30 seconds the players will start cascading from higher ping sessions to lower ping until sessions can be started
+- if the minimum amount of players isn't met, after 30 seconds the players will start cascading from higher ping category to lower ping until the sessions can be started
 
 ## Architecture
 The Matchmaking system is composed out of the service and the engine.
