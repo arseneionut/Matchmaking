@@ -73,8 +73,8 @@ def main():
     for arg in args:
         print(arg)
 
-    engine_count = args[0];
-    service_count = args[1];
+    engine_count = 1;
+    service_count = 2;
 
     upstream_list = []
     for i in range(0, service_count):

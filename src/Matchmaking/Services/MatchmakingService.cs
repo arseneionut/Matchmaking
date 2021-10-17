@@ -9,6 +9,7 @@ namespace Matchmaking.Services
     {
         LeaveSuccess,
         CannotLeave,
+        NotJoined,
         Error
     }
     public class MatchmakingService : IMatchmakingService
@@ -41,7 +42,7 @@ namespace Matchmaking.Services
             }
             catch (Exception e)
             {
-                _logger?.LogError($"Something went wrong when trying to join matchmaking: {e.Message}");
+                _logger?.LogError($"Something went wrong when trying to join matchmaking for profile {profileId} with qos {qos}: {e.Message}");
                 return false;
             }
             return committed;
@@ -52,10 +53,15 @@ namespace Matchmaking.Services
             try
             {
                 string mmQosKey = _db.StringGet($"{profileId}_qos");
+                if (mmQosKey == null)
+                {
+                    return LeaveOutcome.NotJoined;
+                }
                 var transaction = _db.CreateTransaction();
                 var removeResult = transaction.ListRemoveAsync("matchmaking_queue", profileId.ToString());
                 var deleteResult = transaction.ListRemoveAsync("matchmaking_queue_qos", mmQosKey);
                 transaction.KeyDeleteAsync($"{profileId}_qos");
+                transaction.KeyDeleteAsync(profileId.ToString());
                 transaction.Execute();
 
                 if (removeResult.Result >= 1 && deleteResult.Result >= 1)

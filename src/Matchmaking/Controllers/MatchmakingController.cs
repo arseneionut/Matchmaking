@@ -31,8 +31,7 @@ namespace Matchmaking.Controllers
             var result = _matchmakingService.AddToMatchmakingQueue(body.ProfileId, body.QoS);
             if (!result)
             {
-                _logger?.LogError("[Matchmaking]StartMatchmaking: Matchmaking queue join error");
-                return StatusCode(StatusCodes.Status500InternalServerError, "Something went wrong when trying to join the matchmaking queue");
+                return Ok("User already joined");
             }
             return Ok();
         }
@@ -50,13 +49,13 @@ namespace Matchmaking.Controllers
             if (result == null)
             {
                 _logger?.LogDebug("[Matchmaking]GetMatchmakingSession:User didn't join matchmaking");
-                return StatusCode((int)HttpStatusCode.InternalServerError, "User did not join matchmaking");
+                return Ok("User did not join matchmaking");
             }
 
             if (result == string.Empty)
             {
                 _logger?.LogDebug("[Matchmaking]GetMatchmakingSession:Session not ready");
-                return Ok("Finding session");
+                return Ok();
             }
             return Ok(new ReturnSession(result));
         }
@@ -75,6 +74,7 @@ namespace Matchmaking.Controllers
                 case LeaveOutcome.LeaveSuccess: return Ok();
                 case LeaveOutcome.Error: return StatusCode(StatusCodes.Status500InternalServerError, "Something went wrong when trying to leave the matchmaking queue");
                 case LeaveOutcome.CannotLeave: return Ok("Cannot Leave");
+                case LeaveOutcome.NotJoined: return Ok("User not in matchmaking");
             }
             return Ok();
         }

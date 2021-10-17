@@ -112,6 +112,28 @@ namespace MatchmakingIntegrationTests
         }
 
         [Fact]
+        public async Task TestJoinBurstMatchmaking()
+        {
+            FlushRedis();
+            for (int i = 0; i < 5000; i++)
+            {
+                var response = await JoinMatchmaking(Guid.NewGuid().ToString());
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task TestDoubleJoinMatchmaking()
+        {
+            FlushRedis();
+            Guid player = Guid.NewGuid();
+            var response = await JoinMatchmaking(player.ToString());
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var response2 = await JoinMatchmaking(player.ToString());
+            Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
+        }
+
+        [Fact]
         public async Task TestJoinMatchmakingWrongGuid()
         {
             FlushRedis();
@@ -131,6 +153,15 @@ namespace MatchmakingIntegrationTests
         }
 
         [Fact]
+        public async Task TestLeaveMatchmakingNoJoin()
+        {
+            FlushRedis();
+            Guid player = Guid.NewGuid();
+            var responseLeave = await LeaveMatchmaking(player.ToString());
+            Assert.Equal(HttpStatusCode.OK, responseLeave.StatusCode);
+        }
+
+        [Fact]
         public async Task TestLeaveMatchmakingWrongGuid()
         {
             FlushRedis();
@@ -142,7 +173,7 @@ namespace MatchmakingIntegrationTests
         public async Task TestGetSession()
         {
             var response = await GetSession(Guid.NewGuid().ToString());
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         [Fact]
