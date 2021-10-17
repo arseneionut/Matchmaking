@@ -23,6 +23,7 @@
 
 ## NOTES* 
 In order to run it from the solution, you will need to have a redis db available on "localhost:6379"
+
 **Please note that integration tests are also available and can be run from inside the solution (Right click -> Run Tests).**
 
 As the service is setup now:
